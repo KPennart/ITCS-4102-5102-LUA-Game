@@ -1,5 +1,11 @@
 -- variable that stores player data such as position and speed
 player = { }
+camera = { }
+camera.x = 0
+camera.y = 0
+camera.scaleX = 1
+camera.scaleY = 1
+camera.rotation = 0
 
 -- function is only called once at the beginning of the game
 function love.load()
@@ -7,11 +13,9 @@ function love.load()
 	love.window.setMode(1024, 576, {resizable=true, vsync=false, minwidth=1024, minheight=576})
 
 	-- Store sprites into their own variables
-	box = love.graphics.newImage("Sprites/Box.png")
 	tileset = love.graphics.newImage("Sprites/Tileset.png")
-	playerSprite = love.graphics.newImage("Sprites/characterTest.png")
-	playerSprite2 = love.graphics.newImage("Sprites/pipo-nekonin001.png")
-	playerGun = love.graphics.newImage("Assets/topdown_shooter/guns/mg/mg_side.png")
+	playerSprite = love.graphics.newImage("Sprites/pipo-nekonin001.png")
+	playerGun = love.graphics.newImage("Sprites/flamethrower_side.png")
 	
 	-- Set the width and height of each tile on the screen (recommended to use power of 2 numbers)
 	tileWidth, tileHeight = 16, 16
@@ -19,9 +23,10 @@ function love.load()
 	player2Width, player2Height = 32, 32
 	-- Get the width and height of the tile spritesheet
 	local tilesetWidth, tilesetHeight = tileset:getWidth(), tileset:getHeight()
-	local playerSpriteWidth, playerSpriteHeight = playerSprite:getWidth(), playerSprite:getHeight()
-	local player2SpriteWidth, player2SpriteHeight = playerSprite2:getWidth(), playerSprite2:getHeight()
-	local gunSpriteWidth, playerSpriteHeight = playerGun:getWidth(), playerGun:getHeight()
+	local player2SpriteWidth, player2SpriteHeight = playerSprite:getWidth(), playerSprite:getHeight()
+	
+	widthOffset = love.graphics.getWidth() / 4
+	heightOffset = love.graphics.getHeight() / 4
 	
 	-- all tiles for the game are stored in quad, index starts at 1
 	quads = 
@@ -31,14 +36,6 @@ function love.load()
 	}
 	
 	playerSpriteSheet =
-	{
-		love.graphics.newQuad(0, 0, playerWidth, playerHeight, playerSpriteWidth, playerSpriteHeight), -- 1 = base sprite
-		love.graphics.newQuad(16, 0, playerWidth, playerHeight, playerSpriteWidth, playerSpriteHeight), -- 2 = right foot
-		love.graphics.newQuad(0, 16, playerWidth, playerHeight, playerSpriteWidth, playerSpriteHeight), -- 3 = base sprite again
-		love.graphics.newQuad(16, 16, playerWidth, playerHeight, playerSpriteWidth, playerSpriteHeight) -- 4 = left foot
-	}
-	
-	playerSpriteSheet2 =
 	{
 		love.graphics.newQuad(0, 0, player2Width, player2Height, player2SpriteWidth, player2SpriteHeight), -- 1 = walking down right foot extended
 		love.graphics.newQuad(32, 0, player2Width, player2Height, player2SpriteWidth, player2SpriteHeight), -- 2 = walking down base
@@ -102,10 +99,6 @@ function love.load()
 	player.frameLength = 100
 	player.maxFrame = 4 * player.frameLength
 	
-	-- Variables that hold the width and height of the Box sprite in Sprites folder
-	--playerWidth = player.img:getWidth()
-	--playerHeight = player.img:getHeight()
-	
 	-- Place the character in the center of the screen
 	player.x = love.graphics.getWidth() / 2
 	player.y = love.graphics.getHeight() / 2
@@ -154,9 +147,20 @@ function love.update(dt)
 	
 	-- playerAnimation()
 	playerFrameManager()
+	
+	
+	camera:setScale(0.5, 0.5)
+	camera:setPostion(player.x - widthOffset, player.y - heightOffset)
+	
+	
 end
 
 function love.draw()
+
+
+	camera:set()
+
+
 	-- For loop with second nested for loop that goes through the tileTable drawing each tile
 	-- in their respective x, y coordinates
 	for rowIndex = 1, #tileTable do
@@ -177,14 +181,17 @@ function love.draw()
 	
 	playerSpriteDirection(characterAngle)
 	
-	-- Draw the character with rotation applied
-	-- love.graphics.draw(playerSprite, playerSpriteSheet[player.frame], player.x, player.y, characterAngle, 1, 1, 8, 8)
-	
-	love.graphics.draw(playerSprite2, playerSpriteSheet2[player.frame + player.animationOffset], player.x, player.y, 0, 1, 1, 16, 16)
+	love.graphics.draw(playerSprite, playerSpriteSheet[player.frame + player.animationOffset], player.x, player.y, 0, 1, 1, 16, 16)
+	love.graphics.draw(playerGun, player.x, player.y+5, characterAngle, 1, 1, 26)
 	
 	love.graphics.print(characterAngle, 100, 100)
 	love.graphics.print(player.animationOffset, 100, 112)
 	love.graphics.print(player.frame, 100, 124)
+	
+	
+	camera:unset()
+	
+	
 end
 
 -- Function takes two sets of coordinates and calculates the angle between the two points
@@ -237,4 +244,25 @@ function playerSpriteDirection(characterAngle)
 	else
 		player.animationOffset = 6
 	end
+end
+
+function camera:set()
+	love.graphics.push()
+	love.graphics.rotate(-self.rotation)
+	love.graphics.scale(1 / self.scaleX, 1 / self.scaleY)
+	love.graphics.translate(-self.x, -self.y)
+end
+
+function camera:unset()
+	love.graphics.pop()
+end
+
+function camera:setPostion(x, y)
+	self.x = x
+	self.y = y
+end
+
+function camera:setScale(sx, sy)
+	self.scaleX = sx
+	self.scaleY = sy
 end
