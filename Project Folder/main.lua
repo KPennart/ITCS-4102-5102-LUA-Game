@@ -2,15 +2,8 @@
 player = { }
 
 -- variables that stores gun data
-bullets = { }
+playerBullets = { }
 guns = { }
---[[
-bulletSpeed = { }
-bulletsPerShot = { }
-bulletSpread = { }
-shotTimer = { }
-shotTimerMax = { }
---]]
 
 -- variables controlling camera
 camera = { }
@@ -30,7 +23,6 @@ function love.load()
 	-- Store sprites into their own variables
 	tileset = love.graphics.newImage("Sprites/Tileset.png")
 	playerSprite = love.graphics.newImage("Sprites/pipo-nekonin001.png")
-	--playerGuns = {love.graphics.newImage("Sprites/flamethrower_side.png")}
 	playerGun = love.graphics.newImage("Sprites/flamethrower_side.png")
 	
 	-- Set the width and height of each tile on the screen (recommended to use power of 2 numbers)
@@ -108,22 +100,24 @@ function love.load()
 		{ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }
 	}
 
-	-- holds gun types (1 = assault rifle, 2 = shotgun, 3 = flamethrower)
+	-- holds current gun (1 = assault rifle, 2 = shotgun, 3 = flamethrower)
 	gunType = 1
-	guns = {{ }, { }, { }}
 
 	-- holds bullet information
 	-- holds arrays for each bullet type
-	bullets[1] = { }
-	bullets[2] = { }
-	bullets[3] = { }
+	playerBullets[1] = { }
+	playerBullets[2] = { }
+	playerBullets[3] = { }
 
 	-- holds distance bullets spawn away from player
-	bulletSpawnDis = .03
+	bulletSpawnDis = .05
+
+	--holds data for each gun
+	guns = {{ }, { }, { }}
 
 	-- sets bullet speed
 	guns[1].bulletSpeed = 450
-	guns[2].bulletSpeed = 350
+	guns[2].bulletSpeed = 400
 	guns[3].bulletSpeed = 250
 
 	--sets number of bullets per shot
@@ -142,8 +136,13 @@ function love.load()
 	guns[3].shotTimer = 0
 
 	guns[1].shotTimerMax = .15
-	guns[2].shotTimerMax = .65
-	guns[3].shotTimerMax = .3
+	guns[2].shotTimerMax = .8
+	guns[3].shotTimerMax = .1
+
+	--holds the max time (in seconds) bullets can be on screen (1000 if not needed)
+	guns[1].maxTime = 1000
+	guns[2].maxTime = 1000
+	guns[3].maxTime = 1
 
 	player.isWalking = false
 	player.frame = 1
@@ -156,8 +155,8 @@ function love.load()
 	player.x = love.graphics.getWidth() / 2
 	player.y = love.graphics.getHeight() / 2
 	
-	-- Give the player a movement speed of 200
-	player.speed = 200
+	-- sets player movement speed
+	player.speed = 150
 	
 end
 
@@ -165,6 +164,7 @@ end
 -- Update is run every frame
 -- Currently checks for movemovent input and moves the character if necessary
 function love.update(dt)
+
 	player.isWalking = false
 	
 	-- If the player is pressing d or a then move them horizontally
@@ -207,10 +207,14 @@ function love.update(dt)
 	--calculate remaining time of shot timers
 	checkShotTimers(dt)
 
-	--fire bullets if button is held
+	--fire bullets if left click is held and we are allowed to shoot again
 	if love.mouse.isDown(1) and guns[gunType].shotTimer <= 0 then
 		fireBullets()
 	end
+
+	--put here in case of screen size change
+	widthOffset = love.graphics.getWidth() / 4
+	heightOffset = love.graphics.getHeight() / 4
 	
 	camera:setScale(0.5, 0.5)
 	camera:setPostion(player.x - widthOffset, player.y - heightOffset)
@@ -258,10 +262,10 @@ function love.draw()
 	-- love.graphics.print(player.animationOffset, 100, 112)
 	-- love.graphics.print(player.frame, 100, 124)
 
-	--draws bullets as little circles, set to sprites later
+	--draws bullets as little circles, TODO set to sprites
 	love.graphics.setColor(0.5, 0.5, 0.5)
-	for j = 1, #bullets do
-		for i,v in ipairs(bullets[j]) do
+	for j = 1, #playerBullets do
+		for i,v in ipairs(playerBullets[j]) do
 			love.graphics.circle("fill", v.x, v.y, 3)
 		end 
 	end
@@ -278,14 +282,14 @@ function math.angle(x1,y1, x2,y2)
 	return math.atan2(y2-y1, x2-x1)
 end
 
---iterates through guns the player has
-function love.wheelmoved(x, y)
-    debugAngle = y
+--iterates through guns the player has when right click is hit
+function love.mousepressed(x, y, button)
+	if button == 2 then
+	    gunType = gunType + 1
 
-    gunType = gunType + y
-
-    if gunType > #guns then gunType = 1 
-	elseif gunType < 1 then gunType = #guns end
+	    --if the gun type is at the limit of the array, go back to start
+    	if gunType > #guns then gunType = 1 end
+	end
 end
 
 -- function that manages what frame of the character table is displayed
@@ -334,70 +338,80 @@ function playerSpriteDirection(characterAngle)
 	end
 end
 
+--updates bullet positions, then checks if they should still exist
 function updateBullets(dt) 
 
-	local i = 1
+	--iterates throgugh each type of bullet
+	for j=1, #playerBullets, 1 do
 
-	--for i,v in ipairs(bullets[0]) do
+		--iterates through each bullet in each bullet type's table
+		--uses while loop to prevent loop from skiping indeces when bullets are removed
+		local i = 1
+		while (i <= #playerBullets[j]) do
 
-	--TODO wrap in a for loop that updates all bullets
-	for j=1, #bullets, 1 do
-		while (i <= #bullets[j]) do
-
-			v = bullets[j][i]
+			-- just storing it in v for convience
+			v = playerBullets[j][i]
 
 			v.x = v.x + (v.dx * dt)
 			v.y = v.y + (v.dy * dt)
 
-			if checkBounds(v.x, v.y) then
-				table.remove(bullets[j], i)
+			v.time = v.time + dt
+
+			--if bullet is outside the level geometry or on screen for too long, destroy it
+			if checkBounds(v.x, v.y) or v.time > guns[j].maxTime then
+				table.remove(playerBullets[j], i)
 			else
-				-- if bullet is removed from table, do not increment
-				-- if bullets[0][2] is removed, bullets[0][3] will take its place
+				-- only increment if no bullet was removed
+				-- if playerBullets[0][2] is removed, playerBullets[0][3] will take its place
 				i = i + 1
 			end
 		end
 	end
 end
 
+--checks if the passed in x and y values are outside of the level geometry
 function checkBounds(x, y)
 	return x < 0 or y < 0 or x > love.graphics.getWidth() or y > love.graphics.getHeight()
 end
 
+--decreases shot timers for each weapon
 function checkShotTimers(dt) 
-
-	--shotTimer[0] = shotTimer[0] - dt
-	---[[
 	for i=1, #guns do
 		if guns[i].shotTimer > 0 then
 			guns[i].shotTimer = guns[i].shotTimer - dt
 		end
 	end
-	--]]
 end
 
+--fire the bullet of the currently selected gun
 function fireBullets()
 
+	--set the can shoot timer
 	guns[gunType].shotTimer = guns[gunType].shotTimerMax
 
+	--hold the starting x and y, as well as mouse x and y in world coords
 	local startX = player.x
 	local startY = player.y
 	local mouseX, mouseY = camera:mousePosition()
 
+	--determine angle to shoot
 	local angle = math.atan2((mouseY - startY), (mouseX - startX))
 
-		
-	--TODO create for loop here to spawn multiple bullets at a time if needed
+	--create each bullet required for currently selected gun 
 	for i = 1, guns[gunType].bulletsPerShot, 1 do
 
+		--create shot spread 
 		local offAngle = angle + ((math.random() - .5) * guns[gunType].bulletSpread)
 
+		--set the amount the bullet should move each update
 		local bulletDx = guns[gunType].bulletSpeed * math.cos(offAngle)
 		local bulletDy = guns[gunType].bulletSpeed * math.sin(offAngle)
 
-		table.insert(bullets[gunType], {x = startX, y = startY, dx = bulletDx, dy = bulletDy})
+		--add bullet to bullet table
+		table.insert(playerBullets[gunType], {x = startX, y = startY, dx = bulletDx, dy = bulletDy, time = 0})
 
-		local lastBul = bullets[gunType][#bullets[gunType]]
+		--push the bullet in the array forward a little bit so that they are outside the player
+		local lastBul = playerBullets[gunType][#playerBullets[gunType]]
 		lastBul.x = lastBul.x + (lastBul.dx * bulletSpawnDis)
 		lastBul.y = lastBul.y + (lastBul.dy * bulletSpawnDis)
 	end
@@ -424,7 +438,7 @@ function camera:setScale(sx, sy)
 	self.scaleY = sy
 end
 
--- default mousex and mousey use local coordinates
+-- default mouse.getPosition() gets local coordinates
 -- use this for world coordinates
 function camera:mousePosition()
 	return love.mouse.getX() * self.scaleX + self.x, love.mouse.getY() * self.scaleY + self.y
