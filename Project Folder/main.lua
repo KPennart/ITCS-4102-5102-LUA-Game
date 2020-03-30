@@ -139,7 +139,7 @@ function love.load()
 	guns[2].shotTimerMax = .8
 	guns[3].shotTimerMax = .1
 
-	--holds the max time (in seconds) bullets can be on screen (1000 if not needed)
+	--holds the max time (in seconds) bullets can be on screen (1000 if not relevant)
 	guns[1].maxTime = 1000
 	guns[2].maxTime = 1000
 	guns[3].maxTime = 1
