@@ -1,6 +1,13 @@
 -- variable that stores player data such as position and speed
 player = { }
 camera = { }
+game = { }
+
+game.screenWidth = love.graphics.getWidth()
+game.screenHeight = love.graphics.getHeight()
+game.resWidth = 1024
+game.resHeight = 576
+
 camera.x = 0
 camera.y = 0
 camera.scaleX = 1
@@ -9,8 +16,10 @@ camera.rotation = 0
 
 -- function is only called once at the beginning of the game
 function love.load()
+	love.graphics.setDefaultFilter("nearest", "nearest")
+	
 	-- Makes window resizable
-	love.window.setMode(1024, 576, {resizable=true, vsync=false, minwidth=1024, minheight=576})
+	love.window.setMode(game.resWidth, game.resHeight, {resizable=true, vsync=false, minwidth=1024, minheight=576})
 
 	-- Store sprites into their own variables
 	tileset = love.graphics.newImage("Sprites/Tileset.png")
@@ -24,9 +33,6 @@ function love.load()
 	-- Get the width and height of the tile spritesheet
 	local tilesetWidth, tilesetHeight = tileset:getWidth(), tileset:getHeight()
 	local player2SpriteWidth, player2SpriteHeight = playerSprite:getWidth(), playerSprite:getHeight()
-	
-	widthOffset = love.graphics.getWidth() / 4
-	heightOffset = love.graphics.getHeight() / 4
 	
 	-- all tiles for the game are stored in quad, index starts at 1
 	quads = 
@@ -92,6 +98,9 @@ function love.load()
 		{ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }
 	}
 	
+	tileTable.width = #tileTable[1] * tileWidth
+	tileTable.height = #tileTable * tileHeight
+	
 	player.isWalking = false
 	player.frame = 1
 	player.animationOffset = 0
@@ -100,8 +109,8 @@ function love.load()
 	player.maxFrame = 4 * player.frameLength
 	
 	-- Place the character in the center of the screen
-	player.x = love.graphics.getWidth() / 2
-	player.y = love.graphics.getHeight() / 2
+	player.x = game.screenWidth / 4
+	player.y = game.screenHeight / 4
 	
 	-- Give the player a movement speed of 200
 	player.speed = 200
@@ -145,12 +154,22 @@ function love.update(dt)
 		love.event.quit()
 	end
 	
+	if love.keyboard.isDown('f1') then
+		love.window.setMode(1024, 576, {fullscreen=true, resizable=false, vsync=false})
+	end
+	
 	-- playerAnimation()
 	playerFrameManager()
 	
+	--(game.resWidth - (love.graphics.getWidth() - tileTable.width)) * camera.scaleX
+	
+	local x = player.x - (love.graphics.getWidth() * camera.scaleX / 2)
+	local y = player.y - (love.graphics.getHeight() * camera.scaleY / 2)
+	
 	
 	camera:setScale(0.5, 0.5)
-	camera:setPostion(player.x - widthOffset, player.y - heightOffset)
+	camera:setPosition(x, y)
+	camera:confine()
 	
 	
 end
@@ -177,20 +196,16 @@ function love.draw()
 	-- Local variables that store the current location of the mouse
 	local mouseX, mouseY = love.mouse.getPosition()
 	-- Local variable that stores the angle that the character should be rotated to
-	local characterAngle = math.angle(mouseX, mouseY, player.x + (playerWidth / 2), player.y  + (playerHeight / 2))
+	local characterAngle = math.angle(mouseX, mouseY, player.x, player.y)
 	
 	playerSpriteDirection(characterAngle)
 	
 	love.graphics.draw(playerSprite, playerSpriteSheet[player.frame + player.animationOffset], player.x, player.y, 0, 1, 1, 16, 16)
 	love.graphics.draw(playerGun, player.x, player.y+5, characterAngle, 1, 1, 26)
 	
-	love.graphics.print(characterAngle, 100, 100)
-	love.graphics.print(player.animationOffset, 100, 112)
-	love.graphics.print(player.frame, 100, 124)
-	
+	debugMessages()
 	
 	camera:unset()
-	
 	
 end
 
@@ -198,6 +213,21 @@ end
 -- Returned angle assumes all sprites by default face left
 function math.angle(x1,y1, x2,y2)
 	return math.atan2(y2-y1, x2-x1)
+end
+
+function debugMessages()
+	local test = ""
+	local test2 = ""
+	local test3 = ""
+	local test4 = ""
+	love.graphics.print(test, player.x - 200, player.y - 150)
+	love.graphics.print(test2, player.x - 200, player.y - 138)
+	love.graphics.print(test3, player.x - 200, player.y - 126)
+	love.graphics.print(test4, player.x - 200, player.y - 114)
+	love.graphics.print("", player.x - 200, player.y - 102)
+	love.graphics.print("", player.x - 200, player.y - 90)
+	love.graphics.print("", player.x - 200, player.y - 78)
+	love.graphics.print("", player.x - 200, player.y - 66)
 end
 
 -- function that manages what frame of the character table is displayed
@@ -257,7 +287,7 @@ function camera:unset()
 	love.graphics.pop()
 end
 
-function camera:setPostion(x, y)
+function camera:setPosition(x, y)
 	self.x = x
 	self.y = y
 end
@@ -265,4 +295,35 @@ end
 function camera:setScale(sx, sy)
 	self.scaleX = sx
 	self.scaleY = sy
+end
+
+function camera:confine()
+	local screenWidth = love.graphics.getWidth()
+	local screenHeight = love.graphics.getHeight()
+	--game.screenWidth
+	--camera.scaleX
+	--tileTable.width
+	
+	if (screenWidth * camera.scaleX > tileTable.width) then
+		local widthDiff = ((screenWidth * camera.scaleX) - tileTable.width)
+		camera:setPosition(-widthDiff / 2, camera.y)
+	else
+		if (camera.x < 0) then
+			camera:setPosition(0, camera.y)
+		elseif (camera.x > 512) then
+			camera:setPosition(512, camera.y)
+		end
+	end
+	
+	if (screenHeight *  camera.scaleY > tileTable.height) then
+		local heightDiff = ((screenHeight * camera.scaleY) - tileTable.height)
+		camera:setPosition(camera.x, -heightDiff / 2)
+	else
+		if (camera.y < 0) then
+			camera:setPosition(camera.x, 0)
+		elseif (camera.y > 288) then
+			camera:setPosition(camera.x, 288)
+		end	
+	end
+	
 end
