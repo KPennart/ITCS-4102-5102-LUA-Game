@@ -231,9 +231,9 @@ function love.load()
 	enemies[enTy.gunner][guTy.jumpyboi].enemyHealth = 4
 
 	-- sets enemy aggro range
-	enemies[enTy.runner][ruTy.basicboi].aggroRange = 150
-	enemies[enTy.runner][ruTy.fastboi].aggroRange = 200
-	enemies[enTy.runner][ruTy.bigboi].aggroRange = 250
+	enemies[enTy.runner][ruTy.basicboi].aggroRange = 250
+	enemies[enTy.runner][ruTy.fastboi].aggroRange = 350
+	enemies[enTy.runner][ruTy.bigboi].aggroRange = 400
 	enemies[enTy.gunner][guTy.slowboi].aggroRange = 500
 	enemies[enTy.gunner][guTy.jumpyboi].aggroRange = 400
 
@@ -384,11 +384,12 @@ function love.draw()
 	-- draws each instance of playerBullets
 	for j = 1, #playerBullets do
 		for i,v in ipairs(playerBullets[j]) do
-			love.graphics.draw(guns[j].bulletSprite, v.x, v.y, 0, 1, 1, 0, 0)
+			local spr = guns[j].bulletSprite
+			love.graphics.draw(spr, v.x, v.y, 0, 1, 1, spr:getHeight()/2, spr:getWidth()/2)
 		end 
 	end
 
-	-- TODO draws each individual enemy
+	-- TODO draws each enemy
 	for k = 1, #enemiesAround do
 		for j = 1, #enemiesAround[k] do
 			for i, v in ipairs(enemiesAround[k][j]) do
@@ -411,8 +412,20 @@ function math.angle(x1,y1, x2,y2)
 	return math.atan2(y2-y1, x2-x1)
 end
 
+-- function takes two sets of coordinates and finds the distance between them
 function findDistance(x1,y1, x2,y2) 
 	return math.sqrt((x2-x1)^2 + (y2-y1)^2)
+end
+
+--check if point (x, y) is in a box determined by c and s
+--(cx, cy) at top left
+--(cx + sx, cy + sy) at bottom left
+function collisionBox(x, y, cx, cy, sx, sy)
+	if (x > cx and x < cx + sx and y > cy and y < cy + sy) then
+		return true
+	end
+
+	return false
 end
 
 --iterates through guns the player has when right click is hit
@@ -481,7 +494,7 @@ function spawnEnemies()
 
 				newx = math.random() * love.graphics.getWidth()
 				newy = math.random() * love.graphics.getHeight()
-				table.insert(enemiesAround[k][j], {x = newx, y = newy, state = states.still})
+				table.insert(enemiesAround[k][j], {x = newx, y = newy, state = states.still, health = enemies[k][j].enemyHealth})
 			end
 		end
 	end
@@ -572,7 +585,7 @@ function updateBullets(dt)
 			v.time = v.time + dt
 
 			--if bullet is outside the level geometry or on screen for too long, destroy it
-			if checkBounds(v.x, v.y) or v.time > guns[j].maxTime then
+			if checkBounds(v.x, v.y) or checkPBulletCollisions(v.x, v.y) or v.time > guns[j].maxTime then
 				table.remove(playerBullets[j], i)
 			else
 				-- only increment if no bullet was removed
@@ -586,6 +599,28 @@ end
 --checks if the passed in x and y values are outside of the level geometry
 function checkBounds(x, y)
 	return x < 0 or y < 0 or x > love.graphics.getWidth() or y > love.graphics.getHeight()
+end
+
+function checkPBulletCollisions(x, y)
+	for k=1, #enemiesAround do
+		for j=1, #enemiesAround[k] do
+			for i,v in ipairs(enemiesAround[k][j]) do
+				--local dis = findDistance(x, y, v.x, v.y)
+				local spr = enemies[k][j].enemySprite
+
+				if collisionBox(x, y, v.x, v.y, spr:getWidth(), spr:getHeight()) then
+					v.health = v.health - 1
+					if (v.health <= 0) then
+						table.remove(enemiesAround[k][j], i)
+					end
+
+					return true
+				end
+			end
+		end
+	end
+
+	return false
 end
 
 --decreases shot timers for each weapon
