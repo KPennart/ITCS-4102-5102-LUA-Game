@@ -8,14 +8,15 @@ guns = { }			-- basic gun data
 --variables that store enemy data
 enemiesAround = { } -- enemies alive in the room
 enemies = { }		-- basic enemy data
+enemyBullets = { }  -- holds gunner bullets
 
 -- represents an enum for basic enemy types
 -- enTy = enemy types
 enTy = {runner = 1, gunner = 2} 
 ruTy = {basicboi = 1, fastboi = 2, bigboi = 3}
 guTy = {slowboi = 1, jumpyboi = 2}
--- guSt = gunner states
-guSt = {still = 1, moving = 2}
+-- guSt = states
+states = {still = 1, moving = 2}
 
 -- variables controlling camera
 camera = { }
@@ -25,7 +26,9 @@ camera.scaleX = 1
 camera.scaleY = 1
 camera.rotation = 0
 
-debugAngle = 0
+debugAngle1 = 0
+debugAngle2 = 0
+debugAngle3 = 0
 
 -- function is only called once at the beginning of the game
 function love.load()
@@ -36,6 +39,7 @@ function love.load()
 	tileset = love.graphics.newImage("Sprites/Tileset.png")
 	playerSprite = love.graphics.newImage("Sprites/pipo-nekonin001.png")
 	playerGun = love.graphics.newImage("Sprites/flamethrower_side.png")
+	defaultBullet = love.graphics.newImage("Sprites/bullet.png")
 
 	debugEnemy = love.graphics.newImage("Sprites/Box.png")
 	
@@ -114,6 +118,27 @@ function love.load()
 		{ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }
 	}
 
+
+
+	--sets player default values
+	player.isWalking = false
+	player.frame = 1
+	player.animationOffset = 0
+	player.currentFrame = 1
+	player.frameLength = 100
+	player.maxFrame = 4 * player.frameLength
+
+	player.health = 5
+	
+	-- Place the character in the center of the screen
+	player.x = love.graphics.getWidth() / 2
+	player.y = love.graphics.getHeight() / 2
+	
+	-- sets player movement speed
+	player.speed = 150
+
+
+	
 	-- holds current gun (1 = assault rifle, 2 = shotgun, 3 = flamethrower)
 	gunType = 1
 
@@ -130,8 +155,8 @@ function love.load()
 	guns = {{ }, { }, { }}
 
 	-- holds bullet sprite for each gun
-	guns[1].bulletSprite = love.graphics.newImage("Sprites/bullet.png")
-	guns[2].bulletSprite = guns[1].bulletSprite
+	guns[1].bulletSprite = defaultBullet
+	guns[2].bulletSprite = defaultBullet
 	guns[3].bulletSprite = love.graphics.newImage("Sprites/Fire1.png")
 
 	-- sets bullet speed
@@ -165,6 +190,8 @@ function love.load()
 
 
 
+
+
 	-- holds data on enemies
 	-- enemy type 1 moves towards player
 	-- enemy type 2 moves away from player and shoots
@@ -182,11 +209,18 @@ function love.load()
 	-- enemy type 2-2 might get closer but shoots more frequently
 	enemies[2] = {{ }, { }}
 
+
+	-- make tables tat hold all enemy information
+
+	enemiesAround = {{ }, { }}
+	enemiesAround[enTy.runner] = {{ }, { }, { }}
+	enemiesAround[enTy.gunner] = {{ }, { }}
+
 	-- sets movement speed of each enemy
 	enemies[enTy.runner][ruTy.basicboi].moveSpeed = 100
 	enemies[enTy.runner][ruTy.fastboi].moveSpeed = 200
 	enemies[enTy.runner][ruTy.bigboi].moveSpeed = 50
-	enemies[enTy.gunner][guTy.slowboi].moveSpeed = 200
+	enemies[enTy.gunner][guTy.slowboi].moveSpeed = 100
 	enemies[enTy.gunner][guTy.jumpyboi].moveSpeed = 300
 
 	-- sets enemy health
@@ -197,20 +231,19 @@ function love.load()
 	enemies[enTy.gunner][guTy.jumpyboi].enemyHealth = 4
 
 	-- sets enemy aggro range
-	enemies[enTy.runner][ruTy.basicboi].aggroRange = 1000
-	enemies[enTy.runner][ruTy.fastboi].aggroRange = 1500
-	enemies[enTy.runner][ruTy.bigboi].aggroRange = 2500
-	enemies[enTy.gunner][guTy.slowboi].aggroRange = 2500
-	enemies[enTy.gunner][guTy.jumpyboi].aggroRange = 2000
+	enemies[enTy.runner][ruTy.basicboi].aggroRange = 150
+	enemies[enTy.runner][ruTy.fastboi].aggroRange = 200
+	enemies[enTy.runner][ruTy.bigboi].aggroRange = 250
+	enemies[enTy.gunner][guTy.slowboi].aggroRange = 500
+	enemies[enTy.gunner][guTy.jumpyboi].aggroRange = 400
 
 	--sets range gunners start moving away
-	enemies[enTy.gunner][guTy.slowboi].startRange = 1000
-	enemies[enTy.gunner][guTy.jumpyboi].startRange = 1000
-
+	enemies[enTy.gunner][guTy.slowboi].startRange = 200
+	enemies[enTy.gunner][guTy.jumpyboi].startRange = 150
 
 	-- sets range gunners stop moving away
-	enemies[enTy.gunner][guTy.slowboi].stopRange = 2000
-	enemies[enTy.gunner][guTy.jumpyboi].stopRange = 1500
+	enemies[enTy.gunner][guTy.slowboi].stopRange = 400
+	enemies[enTy.gunner][guTy.jumpyboi].stopRange = 300
 
 	-- sets gunner shot timers  
 	enemies[enTy.gunner][guTy.slowboi].shotTimer = 0
@@ -218,6 +251,14 @@ function love.load()
 
 	enemies[enTy.gunner][guTy.slowboi].shotTimer = 2
 	enemies[enTy.gunner][guTy.jumpyboi].shotTimer = 1
+
+
+	--sets enemy sprites 
+	enemies[enTy.runner][ruTy.basicboi].enemySprite = debugEnemy
+	enemies[enTy.runner][ruTy.fastboi].enemySprite = debugEnemy
+	enemies[enTy.runner][ruTy.bigboi].enemySprite = debugEnemy
+	enemies[enTy.gunner][guTy.slowboi].enemySprite = debugEnemy
+	enemies[enTy.gunner][guTy.jumpyboi].enemySprite = debugEnemy
 
 	--[[holds copy paste stuff
 	enemies[enTy.runner][ruTy.basicboi]. = 
@@ -227,25 +268,11 @@ function love.load()
 	enemies[enTy.gunner][guTy.jumpyboi]. = 
 	--]]
 
+	--spawns enemies on map
+	spawnEnemies()
 
 
 
-
-	player.isWalking = false
-	player.frame = 1
-	player.animationOffset = 0
-	player.currentFrame = 1
-	player.frameLength = 100
-	player.maxFrame = 4 * player.frameLength
-
-	player.health = 5
-	
-	-- Place the character in the center of the screen
-	player.x = love.graphics.getWidth() / 2
-	player.y = love.graphics.getHeight() / 2
-	
-	-- sets player movement speed
-	player.speed = 150
 	
 end
 
@@ -295,6 +322,9 @@ function love.update(dt)
 	
 	--calculate remaining time of shot timers
 	checkShotTimers(dt)
+
+	--handle enemy updates
+	updateEnemies(dt)
 
 	--fire bullets if left click is held and we are allowed to shoot again
 	if love.mouse.isDown(1) and guns[gunType].shotTimer <= 0 then
@@ -346,7 +376,7 @@ function love.draw()
 	love.graphics.print(player.x, 100, 136)
 	love.graphics.print(player.y, 100, 148)
 	love.graphics.print(gunType, 100, 160)
-	love.graphics.print(debugAngle, 100, 172)
+	love.graphics.print(debugAngle3, 100, 172)
 
 	-- love.graphics.print(player.animationOffset, 100, 112)
 	-- love.graphics.print(player.frame, 100, 124)
@@ -359,7 +389,15 @@ function love.draw()
 	end
 
 	-- TODO draws each individual enemy
-	
+	for k = 1, #enemiesAround do
+		for j = 1, #enemiesAround[k] do
+			for i, v in ipairs(enemiesAround[k][j]) do
+				love.graphics.draw(enemies[k][j].enemySprite, v.x, v.y, 0, 1, 1, 0, 0)
+			end
+		end
+	end
+
+	-- TODO draws enemy bullets 
 	
 	
 	camera:unset()
@@ -371,6 +409,10 @@ end
 -- Returned angle assumes all sprites by default face left
 function math.angle(x1,y1, x2,y2)
 	return math.atan2(y2-y1, x2-x1)
+end
+
+function findDistance(x1,y1, x2,y2) 
+	return math.sqrt((x2-x1)^2 + (y2-y1)^2)
 end
 
 --iterates through guns the player has when right click is hit
@@ -428,6 +470,87 @@ function playerSpriteDirection(characterAngle)
 		player.animationOffset = 6
 	end
 end
+
+function spawnEnemies() 
+
+	enemyCounts = { {1, 0, 0}, {0, 0} }
+
+	for k=1, #enemyCounts do
+		for j=1, #enemyCounts[k] do
+			for i=1, enemyCounts[k][j] do
+
+				newx = math.random() * love.graphics.getWidth()
+				newy = math.random() * love.graphics.getHeight()
+				table.insert(enemiesAround[k][j], {x = newx, y = newy, state = states.still})
+			end
+		end
+	end
+
+end
+
+function updateEnemies(dt)
+
+	--check runners first 
+	local k = enTy.runner 
+
+	for j=1, #enemiesAround[k] do
+		for i, v in ipairs(enemiesAround[k][j]) do
+
+			local dis = findDistance(player.x, player.y, v.x, v.y)
+
+			debugAngle3 = dis
+
+			---[[
+			if v.state == states.still and dis < enemies[k][j].aggroRange then
+				v.state = states.moving
+			end
+
+			if v.state == states.moving then 
+				moveEnemy(v, enemies[k][j].moveSpeed, dt) 
+				debugAngle3 = 1
+			end
+			--]]
+		end 
+	end
+
+
+	-- check gunners second 
+	k = enTy.gunner
+	for j=1, #enemiesAround[k] do
+		for i, v in ipairs(enemiesAround[k][j]) do
+
+			local dis = findDistance(player.x, v.x, player.y, v.y)
+
+			if dis < enemies[k][j].aggroRange then
+				--TODO fire bullet at player on countdown
+			end
+
+			if state == states.still then
+				if dis < enemies[k][j].startRange then
+					v.state = states.moving
+				end
+			else 
+				if dis > enemies[k][j].stopRange then
+					v.state = states.still
+				else
+					moveEnemy(v, -enemies[k][j].moveSpeed, dt)
+				end
+			end
+		end 
+	end
+
+end
+
+function moveEnemy(v, spd, dt) 
+	local angle = math.atan2((player.y - v.y), (player.x - v.x))
+
+	local enemyDx = spd * math.cos(angle)
+	local enemyDy = spd * math.sin(angle)
+
+	v.x = v.x + (enemyDx * dt)
+	v.y = v.y + (enemyDy * dt)
+end
+
 
 --updates bullet positions, then checks if they should still exist
 function updateBullets(dt) 
