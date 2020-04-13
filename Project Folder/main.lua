@@ -2,8 +2,20 @@
 player = { }
 
 -- variables that stores gun data
-playerBullets = { }
-guns = { }
+playerBullets = { }	-- bullets in room
+guns = { }			-- basic gun data
+
+--variables that store enemy data
+enemiesAround = { } -- enemies alive in the room
+enemies = { }		-- basic enemy data
+
+-- represents an enum for basic enemy types
+-- enTy = enemy types
+enTy = {runner = 1, gunner = 2} 
+ruTy = {basicboi = 1, fastboi = 2, bigboi = 3}
+guTy = {slowboi = 1, jumpyboi = 2}
+-- guSt = gunner states
+guSt = {still = 1, moving = 2}
 
 -- variables controlling camera
 camera = { }
@@ -24,6 +36,8 @@ function love.load()
 	tileset = love.graphics.newImage("Sprites/Tileset.png")
 	playerSprite = love.graphics.newImage("Sprites/pipo-nekonin001.png")
 	playerGun = love.graphics.newImage("Sprites/flamethrower_side.png")
+
+	debugEnemy = love.graphics.newImage("Sprites/Box.png")
 	
 	-- Set the width and height of each tile on the screen (recommended to use power of 2 numbers)
 	tileWidth, tileHeight = 16, 16
@@ -115,6 +129,11 @@ function love.load()
 	--holds data for each gun
 	guns = {{ }, { }, { }}
 
+	-- holds bullet sprite for each gun
+	guns[1].bulletSprite = love.graphics.newImage("Sprites/bullet.png")
+	guns[2].bulletSprite = guns[1].bulletSprite
+	guns[3].bulletSprite = love.graphics.newImage("Sprites/Fire1.png")
+
 	-- sets bullet speed
 	guns[1].bulletSpeed = 450
 	guns[2].bulletSpeed = 400
@@ -127,7 +146,7 @@ function love.load()
 
 	--sets level of randomness for bullet spread
 	guns[1].bulletSpread = .1
-	guns[2].bulletSpread = .5
+	guns[2].bulletSpread = .35
 	guns[3].bulletSpread = .2
 
 	-- holds the shot timers for each gun (in seconds)
@@ -144,12 +163,82 @@ function love.load()
 	guns[2].maxTime = 1000
 	guns[3].maxTime = 1
 
+
+
+	-- holds data on enemies
+	-- enemy type 1 moves towards player
+	-- enemy type 2 moves away from player and shoots
+	enemies = {{ }, { }}
+
+	-- holds data on enemy 1 types
+	-- enemy type 1-1 is basic enemy
+	-- enemy type 1-2 moves fast but has low health
+	-- enemy type 1-3 moves slow but has much higher health
+	-- doing it like this to show we can use inheritance
+	enemies[1] = {{ }, { }, { }}
+
+	-- holds data on enemy 2 types
+	-- enemy type 2-1 stays away but shoots less often
+	-- enemy type 2-2 might get closer but shoots more frequently
+	enemies[2] = {{ }, { }}
+
+	-- sets movement speed of each enemy
+	enemies[enTy.runner][ruTy.basicboi].moveSpeed = 100
+	enemies[enTy.runner][ruTy.fastboi].moveSpeed = 200
+	enemies[enTy.runner][ruTy.bigboi].moveSpeed = 50
+	enemies[enTy.gunner][guTy.slowboi].moveSpeed = 200
+	enemies[enTy.gunner][guTy.jumpyboi].moveSpeed = 300
+
+	-- sets enemy health
+	enemies[enTy.runner][ruTy.basicboi].enemyHealth = 5
+	enemies[enTy.runner][ruTy.fastboi].enemyHealth = 3
+	enemies[enTy.runner][ruTy.bigboi].enemyHealth = 15
+	enemies[enTy.gunner][guTy.slowboi].enemyHealth = 6
+	enemies[enTy.gunner][guTy.jumpyboi].enemyHealth = 4
+
+	-- sets enemy aggro range
+	enemies[enTy.runner][ruTy.basicboi].aggroRange = 1000
+	enemies[enTy.runner][ruTy.fastboi].aggroRange = 1500
+	enemies[enTy.runner][ruTy.bigboi].aggroRange = 2500
+	enemies[enTy.gunner][guTy.slowboi].aggroRange = 2500
+	enemies[enTy.gunner][guTy.jumpyboi].aggroRange = 2000
+
+	--sets range gunners start moving away
+	enemies[enTy.gunner][guTy.slowboi].startRange = 1000
+	enemies[enTy.gunner][guTy.jumpyboi].startRange = 1000
+
+
+	-- sets range gunners stop moving away
+	enemies[enTy.gunner][guTy.slowboi].stopRange = 2000
+	enemies[enTy.gunner][guTy.jumpyboi].stopRange = 1500
+
+	-- sets gunner shot timers  
+	enemies[enTy.gunner][guTy.slowboi].shotTimer = 0
+	enemies[enTy.gunner][guTy.jumpyboi].shotTimer = 0
+
+	enemies[enTy.gunner][guTy.slowboi].shotTimer = 2
+	enemies[enTy.gunner][guTy.jumpyboi].shotTimer = 1
+
+	--[[holds copy paste stuff
+	enemies[enTy.runner][ruTy.basicboi]. = 
+	enemies[enTy.runner][ruTy.fastboi]. = 
+	enemies[enTy.runner][ruTy.bigboi]. = 
+	enemies[enTy.gunner][guTy.slowboi]. = 
+	enemies[enTy.gunner][guTy.jumpyboi]. = 
+	--]]
+
+
+
+
+
 	player.isWalking = false
 	player.frame = 1
 	player.animationOffset = 0
 	player.currentFrame = 1
 	player.frameLength = 100
 	player.maxFrame = 4 * player.frameLength
+
+	player.health = 5
 	
 	-- Place the character in the center of the screen
 	player.x = love.graphics.getWidth() / 2
@@ -262,13 +351,15 @@ function love.draw()
 	-- love.graphics.print(player.animationOffset, 100, 112)
 	-- love.graphics.print(player.frame, 100, 124)
 
-	--draws bullets as little circles, TODO set to sprites
-	love.graphics.setColor(0.5, 0.5, 0.5)
+	-- draws each instance of playerBullets
 	for j = 1, #playerBullets do
 		for i,v in ipairs(playerBullets[j]) do
-			love.graphics.circle("fill", v.x, v.y, 3)
+			love.graphics.draw(guns[j].bulletSprite, v.x, v.y, 0, 1, 1, 0, 0)
 		end 
 	end
+
+	-- TODO draws each individual enemy
+	
 	
 	
 	camera:unset()
