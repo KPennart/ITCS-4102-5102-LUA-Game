@@ -175,6 +175,13 @@ function love.load()
 	guns[2].bulletSprite = defaultBullet
 	guns[3].bulletSprite = love.graphics.newImage("Sprites/Fire1.png")
 
+	--TODO sets gun sprites for each gun 
+	--[[
+	guns[1].gunSprite = 
+	guns[2].gunSprite = 
+	guns[3].gunSprite = 
+	--]]
+
 	-- sets bullet speed
 	guns[1].bulletSpeed = 450
 	guns[2].bulletSpeed = 400
@@ -292,9 +299,11 @@ function love.load()
 	
 end
 
+--uare requires you to set up a "style" for each ui element
+--styles can be reused of course
 function uareStuff() 
 
-
+	--set up style for healthbar
 	healthStyle = uare.newStyle({
 		height = 25,
 		width = 30,
@@ -319,7 +328,7 @@ function uareStuff()
 		}
 	})
 
-
+	--set up style for healthbar background 
 	healthBackgroundStyle = uare.newStyle({
 	    height = 25,
 	    width = WWIDTH*.25-21,
@@ -337,6 +346,7 @@ function uareStuff()
 	    }
 	})
 
+	--set style for restart message
 	restartStyle = uare.newStyle({
 		height = 200,
 		width = 400,
@@ -355,16 +365,21 @@ function uareStuff()
 
 	})
 
+	--create the object for the background of the healthbar
 	healthLabel = uare.new({
 		x = WWIDTH*.05,
 		y = WHEIGHT*.05
 	}):style(healthBackgroundStyle)
 
+	--create the healthbar (actually just a box that indicates health)
 	healthbar = uare.new({
 		x = WWIDTH*.25,
 		y = WHEIGHT*.05
 	}):style(healthStyle)
 
+	--create a box with the gameover text
+	--the neat thing is that it hides the player lol
+	--no need for a death animation
 	restartButton = uare.new({
 		x = WWIDTH * .5-200,
 		y = WHEIGHT * .5-100
@@ -395,7 +410,7 @@ function love.update(dt)
 		love.event.quit()
 	end
 	
-	-- playerAnimation()
+	-- playerAnimation
 	playerFrameManager()
 
 	--update bullet positions
@@ -473,6 +488,7 @@ function love.draw()
 	end
 
 	-- draws each enemy
+	--explanation for array iteration in checkPlayerCollisions()
 	for k = 1, #enemiesAround do
 		for j = 1, #enemiesAround[k] do
 			for i, v in ipairs(enemiesAround[k][j]) do
@@ -541,11 +557,15 @@ function love.mousepressed(x, y, button)
 	end
 end
 
+--here's where the ui stuff is 
 function updateUareStuff(dt)
+	--gotta call this function in update!
 	uare.update(dt, love.mouse.getX(), love.mouse.getY())
 
+	--update healthbar with player health
 	healthbar:setHorizontalRange(player.health / 5)
 
+	--store healtbar value in a text field 
 	local hp = healthbar:getHorizontalRange()
 
 	healthLabel.text.display = hp * 5
@@ -632,14 +652,18 @@ function playerSpriteDirection(characterAngle)
 	end
 end
 
+--spawns all enemies on load
+--TODO call this when all enemies are destroyed
+--TODO increment amount of enemies that get spawned
 function spawnEnemies() 
 	enemyCounts = { {math.random() * 6, math.random() * 3, math.random() * 2}, 
 	{0, 0} }
 
+	--for each number carried in the array, spawn that amount of enemies
 	for k=1, #enemyCounts do
 		for j=1, #enemyCounts[k] do
 			for i=1, enemyCounts[k][j] do
-
+				--throw enemy in a random place in the room 
 				newx = math.random() * love.graphics.getWidth()
 				newy = math.random() * love.graphics.getHeight()
 				table.insert(enemiesAround[k][j], {x = newx, y = newy, state = states.still, health = enemies[k][j].enemyHealth})
@@ -653,21 +677,21 @@ function updateEnemies(dt)
 
 	--check runners first 
 	local k = enTy.runner 
-
 	for j=1, #enemiesAround[k] do
 		for i, v in ipairs(enemiesAround[k][j]) do
 
+			--grab reference to distance to player
 			local dis = findDistance(player.x, player.y, v.x, v.y)
 
-			---[[
+			--if player is close, change to moving state
 			if v.state == states.still and dis < enemies[k][j].aggroRange then
 				v.state = states.moving
 			end
 
+			--if in moving state, move enemy
 			if v.state == states.moving then 
 				moveEnemy(v, enemies[k][j].moveSpeed, dt) 
 			end
-			--]]
 		end 
 	end
 
@@ -699,7 +723,12 @@ function updateEnemies(dt)
 
 end
 
+--pass in an individual enemy (v), speed and dt
+--call to move an enemy towards (or away if spd is negative) the player
 function moveEnemy(v, spd, dt) 
+	--if player is in iframes, do not move forward
+	--this prevents fast enemies from being impossible to kill
+	--and also gives the player a breather 
 	if player.iframes <= 0 then
 		local angle = math.atan2((player.y - v.y), (player.x - v.x))
 
@@ -748,30 +777,44 @@ function checkBounds(x, y)
 	return x < 0 or y < 0 or x > love.graphics.getWidth() or y > love.graphics.getHeight()
 end
 
+--check each individual enemy to see if its colliding with the player
 function checkPlayerCollisions(x, y) 
+
+	--increment through both enemy types in the enemiesAround array
 	for k=1, #enemiesAround do
+		--increment through each subtype of enemy
 		for j=1, #enemiesAround[k] do
+			--increment through each individual enemy for each subtype
 			for i,v in ipairs(enemiesAround[k][j]) do
-				--local dis = findDistance(x, y, v.x, v.y)
+
+				--grab a reference to the enemy's sprite for easier math
 				local spr = enemies[k][j].enemySprite
 
+				--compare a 16x16 box around the player with the enemy's collision box
+				--player sprite origin is in the middle, enemy origin is at top left
+				--also check if player is in iframes
 				if player.iframes <= 0 and collisionBoxes(x-8, y-8, x+8, y+8,
 					v.x, v.y, spr:getWidth(), spr:getHeight()) then
+					--decrement player health and set iframes
 					player.health = player.health - 1
 					player.iframes = player.iframesMax
+					--if player's outta health then they're dead!!!
 					if (player.health <= 0) then
 						gameover = true
 					end
 
+					--return true if you collide with an enemy
 					return true
 				end
 			end
 		end
 	end
 
+	-- if collision didn't happen, return false
 	return false
 end
 
+-- check each individual enemy to see if its overlapping with a bullet
 function checkPBulletCollisions(x, y)
 	for k=1, #enemiesAround do
 		for j=1, #enemiesAround[k] do
@@ -802,6 +845,7 @@ function checkShotTimers(dt)
 		end
 	end
 
+	--also decrement iframes for the player
 	if player.iframes > 0 then
 		player.iframes = player.iframes - dt
 	end
