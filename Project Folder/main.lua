@@ -21,10 +21,17 @@ gameover = false
 playerBullets = { }	-- bullets in room
 guns = { }			-- basic gun data
 
+--variables the control waves
+enPerWave = { }
+waveCounter = 1
+
+killCounter = 0
+
 --variables that store enemy data
 enemiesAround = { } -- enemies alive in the room
 enemies = { }		-- basic enemy data
 enemyBullets = { }  -- holds gunner bullets
+medpacks = { } -- holds medpacks
 
 -- represents an enum for basic enemy types
 -- enTy = enemy types
@@ -36,9 +43,13 @@ states = {still = 1, moving = 2}
 
 
 debugAngle3 = 0
+debugTable = { }
 
 -- function is only called once at the beginning of the game
 function love.load()
+
+	--set random to be actually random 
+	math.randomseed(os.time())
 
 	WWIDTH, WHEIGHT = 1024, 576
 
@@ -49,7 +60,9 @@ function love.load()
 	tileset = love.graphics.newImage("Sprites/Tileset.png")
 	playerSprite = love.graphics.newImage("Sprites/pipo-nekonin001.png")
 	playerGun = love.graphics.newImage("Sprites/flamethrower_side.png")
-	defaultBullet = love.graphics.newImage("Sprites/bullet.png")
+	defaultBullet = love.graphics.newImage("Sprites/Bullet.png")
+	enemyBulletSprite = love.graphics.newImage("Sprites/Bullet2.png")
+	medpackSprite = love.graphics.newImage("Sprites/Medpack.png")
 
 	debugEnemy = love.graphics.newImage("Sprites/Box.png")
 	
@@ -257,8 +270,8 @@ function love.load()
 	enemies[enTy.runner][ruTy.basicboi].aggroRange = 250
 	enemies[enTy.runner][ruTy.fastboi].aggroRange = 350
 	enemies[enTy.runner][ruTy.bigboi].aggroRange = 400
-	enemies[enTy.gunner][guTy.slowboi].aggroRange = 500
-	enemies[enTy.gunner][guTy.jumpyboi].aggroRange = 400
+	enemies[enTy.gunner][guTy.slowboi].aggroRange = 700
+	enemies[enTy.gunner][guTy.jumpyboi].aggroRange = 600
 
 	--sets range gunners start moving away
 	enemies[enTy.gunner][guTy.slowboi].startRange = 200
@@ -272,8 +285,8 @@ function love.load()
 	enemies[enTy.gunner][guTy.slowboi].shotTimer = 0
 	enemies[enTy.gunner][guTy.jumpyboi].shotTimer = 0
 
-	enemies[enTy.gunner][guTy.slowboi].shotTimer = 2
-	enemies[enTy.gunner][guTy.jumpyboi].shotTimer = 1
+	enemies[enTy.gunner][guTy.slowboi].shotTimerMax = 2.5
+	enemies[enTy.gunner][guTy.jumpyboi].shotTimerMax = 1.5
 
 
 	--sets enemy sprites 
@@ -282,6 +295,9 @@ function love.load()
 	enemies[enTy.runner][ruTy.bigboi].enemySprite = debugEnemy
 	enemies[enTy.gunner][guTy.slowboi].enemySprite = debugEnemy
 	enemies[enTy.gunner][guTy.jumpyboi].enemySprite = debugEnemy
+
+	enemyBulletSpeed = 120
+	enemyBulletSpread = .1
 
 	--[[holds copy paste stuff
 	enemies[enTy.runner][ruTy.basicboi]. = 
@@ -292,8 +308,8 @@ function love.load()
 	--]]
 
 	--spawns enemies on map
+	enPerWave = { {3, 1.5, .5}, {2, 1}}
 	spawnEnemies()
-
 
 
 	
@@ -384,7 +400,9 @@ function uareStuff()
 		x = WWIDTH * .5-200,
 		y = WHEIGHT * .5-100
 	}):style(restartStyle)
-	restartButton.text.display = "Game Over!\nPress R to Restart"
+	restartButton.text.display = 
+		"Game Over!\nYou beat " .. killCounter .. 
+		" enemies!\n\nPress R to Restart"
 
 end
 
@@ -420,7 +438,10 @@ function love.update(dt)
 	checkShotTimers(dt)
 
 	--handle enemy updates
-	updateEnemies(dt)
+	if updateEnemies(dt) then
+		waveCounter = waveCounter + 1
+		spawnEnemies()
+	end
 
 	--fire bullets if left click is held and we are allowed to shoot again
 	if gameover == false and love.mouse.isDown(1) and guns[gunType].shotTimer <= 0 then
@@ -463,7 +484,7 @@ function love.draw()
 	playerSpriteDirection(characterAngle)
 
 	love.graphics.draw(playerSprite, playerSpriteSheet[player.frame + player.animationOffset], player.x, player.y, 0, 1, 1, 16, 16)
-	love.graphics.draw(playerGun, player.x, player.y+5, characterAngle, 1, 1, 26)
+	love.graphics.draw(playerGun, player.x+playerWidth / 2, player.y+playerWidth/2, characterAngle, 1, 1, 26,3)
 	
 	--[[
 	love.graphics.print(characterAngle, 100, 100)
@@ -479,6 +500,8 @@ function love.draw()
 
 	--]]
 
+
+
 	-- draws each instance of playerBullets
 	for j = 1, #playerBullets do
 		for i,v in ipairs(playerBullets[j]) do
@@ -487,16 +510,36 @@ function love.draw()
 		end 
 	end
 
+	for i,v in ipairs(enemyBullets) do
+		local spr = enemyBulletSprite
+		love.graphics.draw(spr, v.x, v.y, 0, 1, 1, spr:getHeight()/2, spr:getWidth()/2)
+	end
+
+	local debugLoc = 0
 	-- draws each enemy
 	--explanation for array iteration in checkPlayerCollisions()
 	for k = 1, #enemiesAround do
 		for j = 1, #enemiesAround[k] do
 			for i, v in ipairs(enemiesAround[k][j]) do
 				love.graphics.draw(enemies[k][j].enemySprite, v.x, v.y, 0, 1, 1, 0, 0)
+				--love.graphics.print(k .. " " .. j .. " " .. v.x .. ", " .. v.y, 100, 100 + (20 * debugLoc))
+				--debugLoc = debugLoc + 1
 			end
 		end
 	end
 
+	for i,v in ipairs(medpacks) do
+		local spr = medpackSprite
+		love.graphics.draw(spr, v.x, v.y, 0, 1, 1, spr:getHeight()/2, spr:getWidth()/2)
+	end
+
+
+	--[[
+	for i=1, #debugTable do
+		love.graphics.print(debugTable[i], 100, 100 + (20 * debugLoc))
+		debugLoc = debugLoc + 1
+	end
+	--]]
 	-- TODO draws enemy bullets 
 
 
@@ -601,7 +644,7 @@ function updatePlayer(dt)
 		end
 	end
 
-	checkPlayerCollisions(player.x, player.y)
+	checkPlayerCollisions()
 
 
 end
@@ -656,30 +699,68 @@ end
 --TODO call this when all enemies are destroyed
 --TODO increment amount of enemies that get spawned
 function spawnEnemies() 
-	enemyCounts = { {math.random() * 6, math.random() * 3, math.random() * 2}, 
-	{0, 0} }
+
+
+
+	enemyCounts = { 
+		{math.random() * enPerWave[enTy.runner][ruTy.basicboi] * waveCounter, 
+		math.random() * enPerWave[enTy.runner][ruTy.fastboi] * waveCounter, 
+		math.random() * enPerWave[enTy.runner][ruTy.bigboi] * waveCounter},
+
+		{math.random() * enPerWave[enTy.gunner][guTy.slowboi] * waveCounter, 
+		math.random() * enPerWave[enTy.gunner][guTy.jumpyboi] * waveCounter} }
 
 	--for each number carried in the array, spawn that amount of enemies
 	for k=1, #enemyCounts do
 		for j=1, #enemyCounts[k] do
+			
+			local enSpr = enemies[k][j].enemySprite
+
+			
 			for i=1, enemyCounts[k][j] do
 				--throw enemy in a random place in the room 
-				newx = math.random() * love.graphics.getWidth()
-				newy = math.random() * love.graphics.getHeight()
-				table.insert(enemiesAround[k][j], {x = newx, y = newy, state = states.still, health = enemies[k][j].enemyHealth})
+				newx, newy = spawnLoc(enSpr:getWidth(), enSpr:getHeight())
+
+				table.insert(enemiesAround[k][j], {x = newx, y = newy, 
+					state = states.still, health = enemies[k][j].enemyHealth,
+					cooldown = 0})
 			end
 		end
 	end
 
+	if math.random() > 0.5 then
+		newx, newy = spawnLoc(16, 16)
+
+		table.insert(medpacks, {x = newx, y = newy})
+	end
+
+end
+
+function spawnLoc(xbound, ybound) 
+
+	newx, newy = 0, 0
+
+	while newx < xbound or newx > love.graphics.getWidth() - xbound or
+		newy < ybound or newy > love.graphics.getHeight() - ybound do
+		
+		newx = math.random() * love.graphics.getWidth()
+		newy = math.random() * love.graphics.getHeight()
+
+	end
+
+	return newx, newy
 end
 
 function updateEnemies(dt)
+
+	enemiesDead = true
 
 	--check runners first 
 	local k = enTy.runner 
 	for j=1, #enemiesAround[k] do
 		for i, v in ipairs(enemiesAround[k][j]) do
 
+			enemiesDead = false
 			--grab reference to distance to player
 			local dis = findDistance(player.x, player.y, v.x, v.y)
 
@@ -690,7 +771,7 @@ function updateEnemies(dt)
 
 			--if in moving state, move enemy
 			if v.state == states.moving then 
-				moveEnemy(v, enemies[k][j].moveSpeed, dt) 
+				moveEnemy(v, enemies[k][j].moveSpeed, enemies[k][j].enemySprite, dt) 
 			end
 		end 
 	end
@@ -701,10 +782,17 @@ function updateEnemies(dt)
 	for j=1, #enemiesAround[k] do
 		for i, v in ipairs(enemiesAround[k][j]) do
 
-			local dis = findDistance(player.x, v.x, player.y, v.y)
+			enemiesDead = false
 
-			if dis < enemies[k][j].aggroRange then
-				--TODO fire bullet at player on countdown
+			local dis = findDistance(player.x, player.y, v.x, v.y)
+
+			if v.cooldown <= 0 then 
+				if dis < enemies[k][j].aggroRange then
+					fireEnemyBullets(v)
+					v.cooldown = enemies[k][j].shotTimerMax
+				end 
+			else
+				v.cooldown = v.cooldown - (math.random() * dt)
 			end
 
 			if state == states.still then
@@ -715,17 +803,19 @@ function updateEnemies(dt)
 				if dis > enemies[k][j].stopRange then
 					v.state = states.still
 				else
-					moveEnemy(v, -enemies[k][j].moveSpeed, dt)
+					moveEnemy(v, -enemies[k][j].moveSpeed, enemies[k][j].enemySprite, dt)
 				end
 			end
 		end 
 	end
 
+	return enemiesDead
+
 end
 
 --pass in an individual enemy (v), speed and dt
 --call to move an enemy towards (or away if spd is negative) the player
-function moveEnemy(v, spd, dt) 
+function moveEnemy(v, spd, enSpr, dt) 
 	--if player is in iframes, do not move forward
 	--this prevents fast enemies from being impossible to kill
 	--and also gives the player a breather 
@@ -735,8 +825,18 @@ function moveEnemy(v, spd, dt)
 		local enemyDx = spd * math.cos(angle)
 		local enemyDy = spd * math.sin(angle)
 
-		v.x = v.x + (enemyDx * dt)
-		v.y = v.y + (enemyDy * dt)
+		newx = v.x + (enemyDx * dt)
+		newy = v.y + (enemyDy * dt)
+
+		--TODO bind enemy to screen
+		if newx < enSpr:getWidth() or 
+			newx > love.graphics.getWidth() - enSpr:getWidth() then 
+			newx = v.x end
+		if newy < enSpr:getHeight() or 
+			newy > love.graphics.getHeight() - enSpr:getHeight() then 
+			newy = v.y end
+
+		v.x, v.y = newx, newy
 	end
 end
 
@@ -770,6 +870,40 @@ function updateBullets(dt)
 			end
 		end
 	end
+
+	--iterates through enemy bullets 
+
+	for i=1, #enemyBullets do
+		local i = 1
+		while (i <= #enemyBullets) do
+
+			-- just storing it in v for convience
+			v = enemyBullets[i]
+
+			v.x = v.x + (v.dx * dt)
+			v.y = v.y + (v.dy * dt)
+
+			--if bullet is outside the level geometry or on screen for too long, destroy it
+			if checkBounds(v.x, v.y) then
+				table.remove(enemyBullets, i)
+			elseif player.iframes <= 0 and collisionBox(v.x, v.y, player.x, player.y, playerWidth, playerHeight) then
+				table.remove(enemyBullets, i)
+				
+				player.health = player.health - 1
+				player.iframes = player.iframesMax
+				if (player.health <= 0) then
+					gameover = true
+					restartButton.text.display = 
+						"Game Over!\nYou beat " .. killCounter .. 
+						" enemies!\n\nPress R to Restart"
+				end
+			else
+				-- only increment if no bullet was removed
+				-- if playerBullets[0][2] is removed, playerBullets[0][3] will take its place
+				i = i + 1
+			end
+		end
+	end
 end
 
 --checks if the passed in x and y values are outside of the level geometry
@@ -778,8 +912,9 @@ function checkBounds(x, y)
 end
 
 --check each individual enemy to see if its colliding with the player
-function checkPlayerCollisions(x, y) 
+function checkPlayerCollisions() 
 
+	local x, y = player.x, player.y
 	--increment through both enemy types in the enemiesAround array
 	for k=1, #enemiesAround do
 		--increment through each subtype of enemy
@@ -801,6 +936,9 @@ function checkPlayerCollisions(x, y)
 					--if player's outta health then they're dead!!!
 					if (player.health <= 0) then
 						gameover = true
+						restartButton.text.display = 
+							"Game Over!\nYou beat " .. killCounter .. 
+							" enemies!\n\nPress R to Restart"
 					end
 
 					--return true if you collide with an enemy
@@ -810,9 +948,18 @@ function checkPlayerCollisions(x, y)
 		end
 	end
 
+	for i,v in ipairs(medpacks) do
+		if collisionBoxes(x, y, x + playerWidth, y + playerHeight,
+			v.x, v.y, 16, 16) then
+			table.remove(medpacks, i)
+			player.health = 5
+		end
+	endasa
+
 	-- if collision didn't happen, return false
 	return false
 end
+
 
 -- check each individual enemy to see if its overlapping with a bullet
 function checkPBulletCollisions(x, y)
@@ -825,6 +972,7 @@ function checkPBulletCollisions(x, y)
 				if collisionBox(x, y, v.x, v.y, spr:getWidth(), spr:getHeight()) then
 					v.health = v.health - 1
 					if (v.health <= 0) then
+						killCounter = killCounter + 1 
 						table.remove(enemiesAround[k][j], i)
 					end
 
@@ -858,8 +1006,8 @@ function fireBullets()
 	guns[gunType].shotTimer = guns[gunType].shotTimerMax
 
 	--hold the starting x and y, as well as mouse x and y in world coords
-	local startX = player.x
-	local startY = player.y
+	local startX = player.x + playerWidth / 2
+	local startY = player.y + playerHeight / 2
 	local mouseX, mouseY = camera:mousePosition()
 
 	--determine angle to shoot
@@ -883,6 +1031,17 @@ function fireBullets()
 		lastBul.x = lastBul.x + (lastBul.dx * bulletSpawnDis)
 		lastBul.y = lastBul.y + (lastBul.dy * bulletSpawnDis)
 	end
+end
+
+--take in an enemy as v
+function fireEnemyBullets(v)
+	local angle = math.atan2((player.y - v.y), (player.x - v.x))
+	local offAngle = angle + ((math.random() - .5) * enemyBulletSpread)
+
+	local bulletDx = enemyBulletSpeed * math.cos(offAngle)
+	local bulletDy = enemyBulletSpeed * math.sin(offAngle)
+
+	table.insert(enemyBullets, {x = v.x, y = v.y, dx = bulletDx, dy = bulletDy})
 end
 
 function camera:set()
