@@ -593,10 +593,10 @@ end
 --iterates through guns the player has when right click is hit
 function love.mousepressed(x, y, button)
 	if button == 2 then
-	    gunType = gunType + 1
+	    gunType = gunType - 1
 
 	    --if the gun type is at the limit of the array, go back to start
-    	if gunType > #guns then gunType = 1 end
+    	if gunType < 1 then gunType = #guns end
 	end
 end
 
@@ -954,7 +954,7 @@ function checkPlayerCollisions()
 			table.remove(medpacks, i)
 			player.health = 5
 		end
-	endasa
+	end
 
 	-- if collision didn't happen, return false
 	return false
