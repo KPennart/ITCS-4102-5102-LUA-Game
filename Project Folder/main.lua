@@ -56,6 +56,8 @@ function love.load()
 	-- Makes window resizable
 	love.window.setMode(WWIDTH, WHEIGHT, {resizable=true, vsync=false, minwidth=1024, minheight=576})
 
+	love.window.maximize()
+	
 	-- Store sprites into their own variables
 	tileset = love.graphics.newImage("Sprites/Tileset.png")
 	playerSprite = love.graphics.newImage("Sprites/pipo-nekonin001.png")
@@ -160,8 +162,8 @@ function love.load()
 	player.iframesMax = .5
 	
 	-- Place the character in the center of the screen
-	player.x = love.graphics.getWidth() / 2
-	player.y = love.graphics.getHeight() / 2
+	player.x = WWIDTH / 2
+	player.y = WHEIGHT / 2
 	
 	-- sets player movement speed
 	player.speed = 150
@@ -397,8 +399,8 @@ function uareStuff()
 	--the neat thing is that it hides the player lol
 	--no need for a death animation
 	restartButton = uare.new({
-		x = WWIDTH * .5-200,
-		y = WHEIGHT * .5-100
+		x = love.graphics.getWidth() * .5-200,
+		y = love.graphics.getHeight() * .5-100
 	}):style(restartStyle)
 	restartButton.text.display = 
 		"Game Over!\nYou beat " .. killCounter .. 
@@ -620,7 +622,7 @@ function updatePlayer(dt)
 	-- If the player is pressing d or a then move them horizontally
 	if love.keyboard.isDown('d') then
 		-- confine the player to the screen boundary
-		if player.x < (love.graphics.getWidth() - playerWidth) then
+		if player.x < (WWIDTH - playerWidth) then
 			-- move the player if enough time has passed since the last check (dt)
 			player.x = player.x + (player.speed * dt)
 			player.isWalking = true
@@ -638,7 +640,7 @@ function updatePlayer(dt)
 			player.isWalking = true
 		end
 	elseif love.keyboard.isDown('s') then
-		if player.y < (love.graphics.getHeight() - playerHeight) then
+		if player.y < (WHEIGHT - playerHeight) then
 			player.y = player.y + (player.speed * dt)
 			player.isWalking = true
 		end
@@ -740,11 +742,11 @@ function spawnLoc(xbound, ybound)
 
 	newx, newy = 0, 0
 
-	while newx < xbound or newx > love.graphics.getWidth() - xbound or
-		newy < ybound or newy > love.graphics.getHeight() - ybound do
+	while newx < xbound or newx > WWIDTH - xbound or
+		newy < ybound or newy > WHEIGHT - ybound do
 		
-		newx = math.random() * love.graphics.getWidth()
-		newy = math.random() * love.graphics.getHeight()
+		newx = math.random() * WWIDTH
+		newy = math.random() * WHEIGHT
 
 	end
 
@@ -830,10 +832,10 @@ function moveEnemy(v, spd, enSpr, dt)
 
 		--TODO bind enemy to screen
 		if newx < enSpr:getWidth() or 
-			newx > love.graphics.getWidth() - enSpr:getWidth() then 
+			newx > WWIDTH - enSpr:getWidth() then 
 			newx = v.x end
 		if newy < enSpr:getHeight() or 
-			newy > love.graphics.getHeight() - enSpr:getHeight() then 
+			newy > WHEIGHT - enSpr:getHeight() then 
 			newy = v.y end
 
 		v.x, v.y = newx, newy
@@ -896,6 +898,8 @@ function updateBullets(dt)
 					restartButton.text.display = 
 						"Game Over!\nYou beat " .. killCounter .. 
 						" enemies!\n\nPress R to Restart"
+					restartButton.x = love.graphics.getWidth() * .5-200
+					restartButton.y = love.graphics.getHeight() * .5-100
 				end
 			else
 				-- only increment if no bullet was removed
@@ -908,7 +912,7 @@ end
 
 --checks if the passed in x and y values are outside of the level geometry
 function checkBounds(x, y)
-	return x < 0 or y < 0 or x > love.graphics.getWidth() or y > love.graphics.getHeight()
+	return x < 0 or y < 0 or x > WWIDTH or y > WHEIGHT
 end
 
 --check each individual enemy to see if its colliding with the player
