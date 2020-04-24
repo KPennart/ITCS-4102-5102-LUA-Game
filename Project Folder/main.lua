@@ -169,7 +169,6 @@ function love.load()
 	uareStuff()
 
 
-
 	--sets player default values
 	player.isWalking = false
 	player.frame = 1
@@ -213,11 +212,9 @@ function love.load()
 	guns[3].bulletSprite = love.graphics.newImage("Sprites/Fire1.png")
 
 	--TODO sets gun sprites for each gun 
-	--[[
-	guns[1].gunSprite = 
-	guns[2].gunSprite = 
-	guns[3].gunSprite = 
-	--]]
+	guns[1].gunSprite = love.graphics.newImage("Sprites/mg_side.png")
+	guns[2].gunSprite = love.graphics.newImage("Sprites/shot_side.png")
+	guns[3].gunSprite = love.graphics.newImage("Sprites/flamethrower_side.png")
 
 	-- sets bullet speed
 	guns[1].bulletSpeed = 450
@@ -248,9 +245,12 @@ function love.load()
 	guns[2].maxTime = 1000
 	guns[3].maxTime = .5
 
-
-
-
+	--hold the SFX for each gun
+	guns[1].SFX = love.audio.newSource("Audio/MG.ogg", "static")
+	guns[2].SFX = love.audio.newSource("Audio/SG.ogg", "static")
+	guns[3].SFX = love.audio.newSource("Audio/FT.ogg", "static")
+	
+	
 
 	-- holds data on enemies
 	-- enemy type 1 moves towards player
@@ -319,6 +319,34 @@ function love.load()
 	enemies[enTy.runner][ruTy.bigboi].enemySprite = bigboiSprite
 	enemies[enTy.gunner][guTy.slowboi].enemySprite = slowboiSprite
 	enemies[enTy.gunner][guTy.jumpyboi].enemySprite = jumpyboiSprite
+	
+	--sets enemy direction 
+	enemies[enTy.runner][ruTy.basicboi].direction = 1
+	enemies[enTy.runner][ruTy.fastboi].direction = 1
+	enemies[enTy.runner][ruTy.bigboi].direction = 1
+	enemies[enTy.gunner][guTy.slowboi].direction = 1
+	enemies[enTy.gunner][guTy.jumpyboi].direction = 1
+	
+	--sets enemy frame used in conjunction with fps
+	enemies[enTy.runner][ruTy.basicboi].frame = 1
+	enemies[enTy.runner][ruTy.fastboi].frame = 1
+	enemies[enTy.runner][ruTy.bigboi].frame = 1
+	enemies[enTy.gunner][guTy.slowboi].frame = 1
+	enemies[enTy.gunner][guTy.jumpyboi].frame = 1
+	
+	--sets enemy frame used in conjunction with sprite sheet
+	enemies[enTy.runner][ruTy.basicboi].currentFrame = 5
+	enemies[enTy.runner][ruTy.fastboi].currentFrame = 5
+	enemies[enTy.runner][ruTy.bigboi].currentFrame = 5
+	enemies[enTy.gunner][guTy.slowboi].currentFrame = 5
+	enemies[enTy.gunner][guTy.jumpyboi].currentFrame = 5
+	
+	--sets how fast enemy frames change 
+	enemies[enTy.runner][ruTy.basicboi].maxFrame = 30
+	enemies[enTy.runner][ruTy.fastboi].maxFrame = 20
+	enemies[enTy.runner][ruTy.bigboi].maxFrame = 40
+	enemies[enTy.gunner][guTy.slowboi].maxFrame = 50
+	enemies[enTy.gunner][guTy.jumpyboi].maxFrame = 30
 
 	enemyBulletSpeed = 120
 	enemyBulletSpread = .1
@@ -330,6 +358,10 @@ function love.load()
 	enemies[enTy.gunner][guTy.slowboi]. = 
 	enemies[enTy.gunner][guTy.jumpyboi]. = 
 	--]]
+	
+	playerDamageSFX = love.audio.newSource("Audio/PlayerDamaged.ogg", "static")
+	playerDeathSFX = love.audio.newSource("Audio/PlayerDeath.ogg", "static")
+	enemyDamageSFX = love.audio.newSource("Audio/EnemyDamage.ogg", "static")
 
 	--spawns enemies on map
 	enPerWave = { {3, 1.5, .5}, {2, 1}}
@@ -508,7 +540,7 @@ function love.draw()
 	playerSpriteDirection(characterAngle)
 
 	love.graphics.draw(playerSprite, playerSpriteSheet[player.frame + player.animationOffset], player.x, player.y, 0, 1, 1, 16, 16)
-	love.graphics.draw(playerGunMG, player.x+playerWidth / 2, player.y+playerWidth/2, characterAngle, 1, 1, 17,3)
+	drawGun(characterAngle)
 	
 	--[[
 	love.graphics.print(characterAngle, 100, 100)
@@ -545,7 +577,7 @@ function love.draw()
 	for k = 1, #enemiesAround do
 		for j = 1, #enemiesAround[k] do
 			for i, v in ipairs(enemiesAround[k][j]) do
-				love.graphics.draw(enemies[k][j].enemySprite, playerSpriteSheet[2], v.x, v.y, 0, 1, 1, 0, 0)
+				love.graphics.draw(enemies[k][j].enemySprite, playerSpriteSheet[v.currentFrame], v.x, v.y, 0, 1, 1, 0, 0)
 				--love.graphics.print(k .. " " .. j .. " " .. v.x .. ", " .. v.y, 100, 100 + (20 * debugLoc))
 				--debugLoc = debugLoc + 1
 			end
@@ -747,7 +779,7 @@ function spawnEnemies()
 
 				table.insert(enemiesAround[k][j], {x = newx, y = newy, 
 					state = states.still, health = enemies[k][j].enemyHealth,
-					cooldown = 0})
+					cooldown = 0, currentFrame = 2, frame = 1})
 			end
 		end
 	end
@@ -796,6 +828,8 @@ function updateEnemies(dt)
 			--if in moving state, move enemy
 			if v.state == states.moving then 
 				moveEnemy(v, enemies[k][j].moveSpeed, enemies[k][j].enemySprite, dt) 
+				
+				animateEnemy(v, k, j)
 			end
 		end 
 	end
@@ -822,6 +856,8 @@ function updateEnemies(dt)
 			if state == states.still then
 				if dis < enemies[k][j].startRange then
 					v.state = states.moving
+					
+					animateEnemy(v, k, j)
 				end
 			else 
 				if dis > enemies[k][j].stopRange then
@@ -835,6 +871,40 @@ function updateEnemies(dt)
 
 	return enemiesDead
 
+end
+
+function animateEnemy(v, k, j)
+	v.frame = v.frame + 1
+	
+	local angle = math.atan2((player.y - v.y), (player.x - v.x))
+	
+	local min1 = enemies[k][j].maxFrame + 1
+	local min2 = (enemies[k][j].maxFrame * 3) + 1
+	
+	local max1 = enemies[k][j].maxFrame * 2
+	local max2 = enemies[k][j].maxFrame * 4
+	
+	if (v.frame > enemies[k][j].maxFrame * 4) then
+		v.frame = 1
+	end
+	
+	if (v.frame >= min1) and (v.frame <= max1) then
+		v.currentFrame = 1
+	elseif (v.frame >= min2) and (v.frame <= max2) then
+		v.currentFrame = 3
+	else
+		v.currentFrame = 2
+	end
+	
+	if angle < (math.pi / 2) and angle >= 0 then
+		v.currentFrame = v.currentFrame + 6
+	elseif angle > -(math.pi / 2) and angle <= 0 then
+		v.currentFrame = v.currentFrame + 9
+	elseif angle < -(math.pi / 2) and angle >= -(math.pi) then
+		v.currentFrame = v.currentFrame + 3
+	end
+	
+	
 end
 
 --pass in an individual enemy (v), speed and dt
@@ -867,6 +937,8 @@ end
 
 --updates bullet positions, then checks if they should still exist
 function updateBullets(dt) 
+
+	local playerDMGSFX = playerDamageSFX:clone()
 
 	--iterates throgugh each type of bullet
 	for j=1, #playerBullets, 1 do
@@ -916,12 +988,15 @@ function updateBullets(dt)
 				player.health = player.health - 1
 				player.iframes = player.iframesMax
 				if (player.health <= 0) then
+					playerDeathSFX:play()
 					gameover = true
 					restartButton.text.display = 
 						"Game Over!\nYou beat " .. killCounter .. 
 						" enemies!\n\nPress R to Restart"
 					restartButton.x = love.graphics.getWidth() * .5-200
 					restartButton.y = love.graphics.getHeight() * .5-100
+				else
+					playerDMGSFX:play()
 				end
 			else
 				-- only increment if no bullet was removed
@@ -1057,6 +1132,15 @@ function fireBullets()
 		lastBul.x = lastBul.x + (lastBul.dx * bulletSpawnDis)
 		lastBul.y = lastBul.y + (lastBul.dy * bulletSpawnDis)
 	end
+	
+	local sound
+	
+	if gunType == 3 then
+		sound = guns[gunType].SFX
+	else
+		sound = guns[gunType].SFX:clone()
+	end
+	sound:play()
 end
 
 --take in an enemy as v
@@ -1068,6 +1152,17 @@ function fireEnemyBullets(v)
 	local bulletDy = enemyBulletSpeed * math.sin(offAngle)
 
 	table.insert(enemyBullets, {x = v.x, y = v.y, dx = bulletDx, dy = bulletDy})
+end
+
+function drawGun(characterAngle)
+	xScale = 1
+	yScale = 1
+	
+	if characterAngle < -(math.pi / 2) or characterAngle > (math.pi / 2) then
+		yScale = -1
+	end
+	
+	love.graphics.draw(guns[gunType].gunSprite, player.x+playerWidth / 2-5, player.y+playerWidth/2, characterAngle, xScale, yScale, guns[gunType].gunSprite:getWidth(), 3)
 end
 
 function camera:set()
