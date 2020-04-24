@@ -363,6 +363,10 @@ function love.load()
 	playerDeathSFX = love.audio.newSource("Audio/PlayerDeath.ogg", "static")
 	enemyDamageSFX = love.audio.newSource("Audio/EnemyDamage.ogg", "static")
 
+	BGM = love.audio.newSource("Audio/BGM.wav", "static")
+	BGM:setLooping(true)
+	BGM:play()
+
 	--spawns enemies on map
 	enPerWave = { {3, 1.5, .5}, {2, 1}}
 	spawnEnemies()
@@ -988,7 +992,7 @@ function updateBullets(dt)
 				player.health = player.health - 1
 				player.iframes = player.iframesMax
 				if (player.health <= 0) then
-					playerDeathSFX:play()
+					if gameover == false then playerDeathSFX:play() end
 					gameover = true
 					restartButton.text.display = 
 						"Game Over!\nYou beat " .. killCounter .. 
@@ -1030,16 +1034,22 @@ function checkPlayerCollisions()
 				--player sprite origin is in the middle, enemy origin is at top left
 				--also check if player is in iframes
 				if player.iframes <= 0 and collisionBoxes(x-8, y-8, x+8, y+8,
-					v.x, v.y, spr:getWidth(), spr:getHeight()) then
+					v.x, v.y, spr:getWidth() / 3, spr:getHeight() / 4) then
+					--damaged sound effect
+					local playerDMGSFX = playerDamageSFX:clone()
+
 					--decrement player health and set iframes
 					player.health = player.health - 1
 					player.iframes = player.iframesMax
 					--if player's outta health then they're dead!!!
 					if (player.health <= 0) then
+						if gameover == false then playerDeathSFX:play() end
 						gameover = true
 						restartButton.text.display = 
 							"Game Over!\nYou beat " .. killCounter .. 
 							" enemies!\n\nPress R to Restart"
+					else 
+						playerDMGSFX:play()
 					end
 
 					--return true if you collide with an enemy
@@ -1070,9 +1080,11 @@ function checkPBulletCollisions(x, y)
 				--local dis = findDistance(x, y, v.x, v.y)
 				local spr = enemies[k][j].enemySprite
 
-				if collisionBox(x, y, v.x, v.y, spr:getWidth(), spr:getHeight()) then
+				if collisionBox(x, y, v.x, v.y, spr:getWidth() / 3, spr:getHeight() / 4) then
 					v.health = v.health - 1
 					if (v.health <= 0) then
+						local enemyDMGSFX = enemyDamageSFX:clone()
+						enemyDMGSFX:play()
 						killCounter = killCounter + 1 
 						table.remove(enemiesAround[k][j], i)
 					end
